@@ -1,7 +1,10 @@
 const express = require("express")
 const cors = require("cors")
 require('dotenv').config()
+const ObjectId = require("mongodb").ObjectId;
+const stripe = require("stripe")(`sk_test_51L0mirGh3CcvB5xEdCI8pIWwPt5HdL6rr2YCrSGb2ycw75tFkzXmfk5NVeLbIciAkWzFm82OtoKge9zi7p66StwR003iNIvzNQ`)
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const { query } = require("express");
 const app = express()
 
 const port = process.env.PORT || 5000;
@@ -51,6 +54,72 @@ async function run() {
             res.send(result)
         })
 
+
+
+        // get the single product
+        app.get("/product/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const result = await productCollection.findOne(filter)
+            res.send(result)
+        })
+
+
+
+
+        // change the productQuantity
+        app.put("/product/:id", async (req, res) => {
+            const id = req.params.id;
+            const { product, newQuantity } = req.body;
+            const remaining = parseInt(product.quantity) - parseInt(newQuantity || 0)
+            const filter = { _id: (ObjectId(id)) }
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: {
+                    quantity: remaining,
+                    newQuantity: newQuantity,
+                }
+            }
+            const result = await productCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
+
+
+        // change the pay option
+        app.put("/products/:id", async (req, res) => {
+            const id = req.params.id
+            const { transactionId } = req.body
+            const options = { upsert: true }
+            const filter = { _id: ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    pay: transactionId,
+                }
+            }
+            const result = await productCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
+
+
+        // handlepayment 
+        app.post("/create-payment-intent", async (req, res) => {
+            const { newPrice } = req.body;
+            const price = parseInt(newPrice || 1) * 100;
+            console.log(price, typeof price)
+
+            // Create a PaymentIntent with the order amount and currency
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: price,
+                currency: "usd",
+                payment_method_types: [
+                    "card"
+                ]
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
 
 
     }
