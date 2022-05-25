@@ -2,6 +2,7 @@ const express = require("express")
 const cors = require("cors")
 require('dotenv').config()
 const ObjectId = require("mongodb").ObjectId;
+const jwt = require('jsonwebtoken');
 const stripe = require("stripe")(`sk_test_51L0mirGh3CcvB5xEdCI8pIWwPt5HdL6rr2YCrSGb2ycw75tFkzXmfk5NVeLbIciAkWzFm82OtoKge9zi7p66StwR003iNIvzNQ`)
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const { query } = require("express");
@@ -21,6 +22,25 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
 
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        res.status(401).send({ message: "Unauthorized Access" })
+    }
+    const token = authHeader.split(' ')[1]
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+        if (err) {
+            res.status(403).send({ message: "Forbidden Access" })
+        }
+        else {
+            req.decoded = decoded;
+            next()
+        }
+    })
+}
+
+
+
 async function run() {
     try {
         await client.connect();
@@ -28,6 +48,7 @@ async function run() {
         const reviewCollection = database.collection("reviews");
         const serviceCollection = database.collection("services");
         const productCollection = database.collection("products");
+        const userCollection = database.collection("users");
 
 
 
@@ -41,7 +62,7 @@ async function run() {
 
 
         //get all the services
-        app.get("/services", async (req, res) => {
+        app.get("/services", verifyJWT, async (req, res) => {
             const result = await serviceCollection.find({}).toArray();
             res.send(result)
         })
@@ -49,7 +70,7 @@ async function run() {
 
 
         //get all the products
-        app.get("/products", async (req, res) => {
+        app.get("/products", verifyJWT, async (req, res) => {
             const result = await productCollection.find({}).toArray()
             res.send(result)
         })
@@ -97,6 +118,7 @@ async function run() {
                 }
             }
             const result = await productCollection.updateOne(filter, updateDoc, options)
+
             res.send(result)
         })
 
@@ -104,8 +126,7 @@ async function run() {
         // handlepayment 
         app.post("/create-payment-intent", async (req, res) => {
             const { newPrice } = req.body;
-            const price = parseInt(newPrice || 1) * 100;
-            console.log(price, typeof price)
+            const price = parseInt(newPrice) * 100 || 1;
 
             // Create a PaymentIntent with the order amount and currency
             const paymentIntent = await stripe.paymentIntents.create({
@@ -120,6 +141,52 @@ async function run() {
                 clientSecret: paymentIntent.client_secret,
             });
         });
+
+
+        // send all the users
+        app.put("/users/:email", async (req, res) => {
+            const user = req.body;
+            const options = { upsert: true }
+            const email = req.params.email;
+            const filter = { email: email }
+            const updateDoc = {
+                $set: user
+            }
+            const result = await userCollection.updateOne(filter, updateDoc, options)
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN, { expiresIn: "1d" })
+            res.send({ result, token })
+
+        })
+
+
+        // update the user 
+        app.put("/user/:email", async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email }
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: user
+            }
+            const result = await userCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
+
+        app.get("/user/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const result = await userCollection.findOne(query)
+            res.send(result)
+        })
+
+
+
+        // send review 
+        app.post("/review", async (req, res) => {
+            const { review } = req.body;
+            const result = await reviewCollection.insertOne(review)
+            res.send(result)
+        })
 
 
     }
