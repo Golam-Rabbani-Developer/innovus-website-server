@@ -4,7 +4,7 @@ require('dotenv').config()
 const ObjectId = require("mongodb").ObjectId;
 const jwt = require('jsonwebtoken');
 const stripe = require("stripe")(`sk_test_51L0mirGh3CcvB5xEdCI8pIWwPt5HdL6rr2YCrSGb2ycw75tFkzXmfk5NVeLbIciAkWzFm82OtoKge9zi7p66StwR003iNIvzNQ`)
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, Admin } = require('mongodb');
 const { query } = require("express");
 const app = express()
 
@@ -54,6 +54,18 @@ async function run() {
 
 
 
+        async function verifyAdmin(req, res, next) {
+            const email = req.decoded.email
+            const requesterAccount = await userCollection.findOne({ email })
+            console.log(requesterAccount, email)
+            if (requesterAccount.role === "admin") {
+                next()
+            } else {
+                res.status(403).send({ message: "Forbidden Access" })
+            }
+        }
+
+
         //get all the reiviews
         app.get("/reviews", async (req, res) => {
             const result = await reviewCollection.find({}).toArray();
@@ -86,6 +98,14 @@ async function run() {
             res.send(result)
         })
 
+
+
+        // add new product 
+        app.post("/product", async (req, res) => {
+            const { product } = req.body;
+            const result = await productCollection.insertOne(product)
+            res.send(result)
+        })
 
 
 
@@ -197,7 +217,7 @@ async function run() {
 
 
         //make admin
-        app.put('/admin/user/:email', async (req, res) => {
+        app.put('/admin/user/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             const filter = { email: email }
             const options = { upsert: true }
@@ -207,6 +227,26 @@ async function run() {
             const result = await userCollection.updateOne(filter, updateDoc, options)
             res.send(result)
         })
+
+
+
+        // get only admin 
+        app.get("/admin/users/:email", verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const admin = await userCollection.findOne({ email })
+            if (admin.role === "admin") {
+                res.send({ admin: true })
+            } else {
+                res.send({ admin: false })
+            }
+        })
+
+
+
+
+
+
+
 
 
 
@@ -259,6 +299,31 @@ async function run() {
                 }
             }
             const result = await orderCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
+
+
+
+
+
+        // delete the order from the server 
+        app.delete("/order/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const result = await orderCollection.deleteOne(filter)
+            res.send(result)
+        })
+
+
+
+
+
+
+        // delete a single product
+        app.delete("/product/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const result = await productCollection.deleteOne(filter)
             res.send(result)
         })
 
