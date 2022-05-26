@@ -49,6 +49,7 @@ async function run() {
         const serviceCollection = database.collection("services");
         const productCollection = database.collection("products");
         const userCollection = database.collection("users");
+        const orderCollection = database.collection("orders");
 
 
 
@@ -106,18 +107,28 @@ async function run() {
         })
 
 
-        // change the pay option
-        app.put("/products/:id", async (req, res) => {
+
+        // send all orders
+        app.post("/orders/:email", async (req, res) => {
+            const { order } = req.body;
+            const result = await orderCollection.insertOne(order)
+            res.send(result)
+        })
+
+
+
+        // change the pay option from order collection
+        app.put("/order/:id", async (req, res) => {
             const id = req.params.id
-            const { transactionId } = req.body
-            const options = { upsert: true }
+            const { transactionid } = req.body;
             const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
             const updateDoc = {
                 $set: {
-                    pay: transactionId,
+                    pay: transactionid,
                 }
             }
-            const result = await productCollection.updateOne(filter, updateDoc, options)
+            const result = await orderCollection.updateOne(filter, updateDoc, options)
 
             res.send(result)
         })
@@ -126,7 +137,7 @@ async function run() {
         // handlepayment 
         app.post("/create-payment-intent", async (req, res) => {
             const { newPrice } = req.body;
-            const price = parseInt(newPrice) * 100 || 1;
+            const price = parseInt(newPrice) * 100 || 100;
 
             // Create a PaymentIntent with the order amount and currency
             const paymentIntent = await stripe.paymentIntents.create({
@@ -172,12 +183,40 @@ async function run() {
             res.send(result)
         })
 
+
+
+
+        //
         app.get("/user/:email", async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const result = await userCollection.findOne(query)
             res.send(result)
         })
+
+
+
+        //make admin
+        app.put('/admin/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email }
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: { role: "admin" }
+            }
+            const result = await userCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
+
+
+
+
+        // get all users
+        app.get("/users", async (req, res) => {
+            const result = await userCollection.find({}).toArray()
+            res.send(result)
+        })
+
 
 
 
@@ -188,6 +227,40 @@ async function run() {
             res.send(result)
         })
 
+
+        // get all orders of individual user
+        app.get("/userorders/:email", async (req, res) => {
+            const userEmail = req.params.email;
+            const result = await orderCollection.find({ userEmail }).toArray()
+            res.send(result)
+        })
+
+
+
+
+        // get all orders
+        app.get("/orders", async (req, res) => {
+            const result = await orderCollection.find({}).toArray()
+            res.send(result)
+        })
+
+
+
+
+
+        // change shift status of the order 
+        app.put("/shift/orders/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: {
+                    shift: true,
+                }
+            }
+            const result = await orderCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
+        })
 
     }
     finally { }
