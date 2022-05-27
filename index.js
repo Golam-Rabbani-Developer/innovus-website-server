@@ -34,6 +34,7 @@ function verifyJWT(req, res, next) {
         }
         else {
             req.decoded = decoded;
+
             next()
         }
     })
@@ -57,13 +58,31 @@ async function run() {
         async function verifyAdmin(req, res, next) {
             const email = req.decoded.email
             const requesterAccount = await userCollection.findOne({ email })
-            console.log(requesterAccount, email)
             if (requesterAccount.role === "admin") {
                 next()
             } else {
                 res.status(403).send({ message: "Forbidden Access" })
             }
         }
+
+
+
+
+        // send all the users
+        app.put("/users/:email", async (req, res) => {
+            const user = req.body;
+            const options = { upsert: true }
+            const email = req.params.email;
+            const filter = { email: email }
+            const updateDoc = {
+                $set: user
+            }
+            const result = await userCollection.updateOne(filter, updateDoc, options)
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN, { expiresIn: "1d" })
+            res.send({ result, token })
+
+        })
+
 
 
         //get all the reiviews
@@ -174,20 +193,6 @@ async function run() {
         });
 
 
-        // send all the users
-        app.put("/users/:email", async (req, res) => {
-            const user = req.body;
-            const options = { upsert: true }
-            const email = req.params.email;
-            const filter = { email: email }
-            const updateDoc = {
-                $set: user
-            }
-            const result = await userCollection.updateOne(filter, updateDoc, options)
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN, { expiresIn: "1d" })
-            res.send({ result, token })
-
-        })
 
 
         // update the user 
@@ -230,6 +235,8 @@ async function run() {
 
 
 
+
+
         // get only admin 
         app.get("/admin/users/:email", verifyJWT, async (req, res) => {
             const email = req.params.email;
@@ -240,10 +247,6 @@ async function run() {
                 res.send({ admin: false })
             }
         })
-
-
-
-
 
 
 
