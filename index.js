@@ -94,7 +94,7 @@ async function run() {
 
 
         //get all the services
-        app.get("/services", verifyJWT, async (req, res) => {
+        app.get("/services", async (req, res) => {
             const result = await serviceCollection.find({}).toArray();
             res.send(result)
         })
@@ -102,7 +102,7 @@ async function run() {
 
 
         //get all the products
-        app.get("/products", verifyJWT, async (req, res) => {
+        app.get("/products", async (req, res) => {
             const result = await productCollection.find({}).toArray()
             res.send(result)
         })
