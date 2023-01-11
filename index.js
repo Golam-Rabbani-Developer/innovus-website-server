@@ -1,6 +1,7 @@
-const express = require("express")
-const cors = require("cors")
-require('dotenv').config()
+const express = require("express");
+const cors = require("cors");
+require('dotenv').config();
+const bodyparser = require('body-parser');
 const ObjectId = require("mongodb").ObjectId;
 const jwt = require('jsonwebtoken');
 const stripe = require("stripe")(`sk_test_51L0mirGh3CcvB5xEdCI8pIWwPt5HdL6rr2YCrSGb2ycw75tFkzXmfk5NVeLbIciAkWzFm82OtoKge9zi7p66StwR003iNIvzNQ`)
@@ -8,12 +9,16 @@ const { MongoClient, ServerApiVersion, Admin } = require('mongodb');
 const { query } = require("express");
 const app = express()
 
+
+
 const port = process.env.PORT || 5000;
 
 
 // middleware
 app.use(cors())
 app.use(express.json())
+app.use(bodyparser.urlencoded({ extended: false }))
+app.use(bodyparser.json())
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0253z.mongodb.net/?retryWrites=true&w=majority`;
@@ -72,6 +77,7 @@ async function run() {
             const user = req.body;
             const options = { upsert: true }
             const email = req.params.email;
+            console.log(email)
             const filter = { email: email }
             const updateDoc = {
                 $set: user
