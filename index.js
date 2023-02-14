@@ -101,6 +101,7 @@ async function run() {
         //get all the services
         app.get("/services", async (req, res) => {
             const result = await serviceCollection.find({}).toArray();
+            console.log(result)
             res.send(result)
         })
 
